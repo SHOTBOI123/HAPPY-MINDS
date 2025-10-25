@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mood Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Mood Tracker</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/mood-tracker">Mood Tracker</a>
+            <a href="/entry">Entry</a>
+        </nav>
+    </header>
+
+    <main>
+        {% if entries %}
+            <ul>
+                {% for entry in entries %}
+                    <li>
+                        <strong>Mood:</strong> {{ entry.mood }} <br>
+                        <strong>Entry:</strong> {{ entry.text }}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No journal entries yet. Add one in the <a href="/entry">Entry</a> tab!</p>
+        {% endif %}
+    </main>
+</body>
+</html>
