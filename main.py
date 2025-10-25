@@ -29,28 +29,136 @@ class AnalyzeOut(BaseModel):
 # Config
 # ---------------------------
 # Canonical labels exposed by your API:
-CANON_LABELS = ["joy", "sad", "anxiety", "anger", "neutral"]
+CANON_LABELS = {
+    # 💛 JOY / HAPPINESS
+    "joy": "joy", "joyful": "joy", "happy": "joy", "happiness": "joy",
+    "cheerful": "joy", "content": "joy", "contentment": "joy",
+    "pleased": "joy", "satisfied": "joy", "delighted": "joy",
+    "ecstatic": "joy", "elated": "joy", "enthusiastic": "joy",
+    "excited": "joy", "grateful": "joy", "hopeful": "joy",
+    "optimistic": "joy", "loving": "joy", "affectionate": "joy",
+    "inspired": "joy", "proud": "joy", "playful": "joy", "peaceful": "joy",
+    "amused": "joy", "blissful": "joy", "radiant": "joy",
+    "thrilled": "joy", "joyous": "joy", "thankful": "joy",
+    "curious": "joy", "serene": "joy", "wonder": "joy",
+
+    # 💙 SADNESS / GRIEF
+    "sad": "sad", "sadness": "sad", "unhappy": "sad", "heartbroken": "sad",
+    "disappointed": "sad", "hurt": "sad", "lonely": "sad",
+    "grief": "sad", "grieving": "sad", "gloomy": "sad", "hopeless": "sad",
+    "miserable": "sad", "depressed": "sad", "downcast": "sad",
+    "sorrow": "sad", "melancholy": "sad", "regretful": "sad",
+    "guilt": "sad", "ashamed": "sad", "shame": "sad",
+    "tired": "sad", "drained": "sad", "lost": "sad",
+    "disheartened": "sad", "forlorn": "sad", "discouraged": "sad",
+    "mourning": "sad", "blue": "sad", "heavy": "sad",
+
+    # ❤️ ANGER / FRUSTRATION
+    "anger": "anger", "angry": "anger", "furious": "anger",
+    "annoyed": "anger", "irritated": "anger", "resentful": "anger",
+    "frustrated": "anger", "rage": "anger", "bitter": "anger",
+    "jealous": "anger", "envious": "anger", "offended": "anger",
+    "disgusted": "anger", "hostile": "anger", "indignant": "anger",
+    "vengeful": "anger", "agitated": "anger", "mad": "anger",
+    "impatient": "anger", "hateful": "anger", "infuriated": "anger",
+    "provoked": "anger", "irate": "anger", "irritation": "anger",
+
+    # 💜 ANXIETY / FEAR
+    "anxiety": "anxiety", "anxious": "anxiety", "worried": "anxiety",
+    "fear": "anxiety", "fearful": "anxiety", "afraid": "anxiety",
+    "terrified": "anxiety", "nervous": "anxiety", "uneasy": "anxiety",
+    "tense": "anxiety", "stressed": "anxiety", "panicked": "anxiety",
+    "insecure": "anxiety", "confused": "anxiety", "uncertain": "anxiety",
+    "doubtful": "anxiety", "overwhelmed": "anxiety", "startled": "anxiety",
+    "alarmed": "anxiety", "shaken": "anxiety", "worried": "anxiety",
+    "apprehensive": "anxiety", "concerned": "anxiety", "distrustful": "anxiety",
+
+    # 🩶 NEUTRAL / CALM / MIXED
+    "neutral": "neutral", "calm": "neutral", "relaxed": "neutral",
+    "peaceful": "neutral", "balanced": "neutral", "okay": "neutral",
+    "fine": "neutral", "indifferent": "neutral", "apathetic": "neutral",
+    "blank": "neutral", "bored": "neutral", "composed": "neutral",
+    "collected": "neutral", "stable": "neutral", "rested": "neutral",
+    "serene": "neutral", "quiet": "neutral", "still": "neutral",
+    "nonchalant": "neutral", "content": "joy",  # optional crossmap
+    "curious": "neutral", "pensive": "neutral", "accepting": "neutral",
+
+    # 🧡 SURPRISE / MIXED STATES
+    "surprised": "neutral", "shocked": "neutral", "amazed": "neutral",
+    "astonished": "neutral", "startled": "anxiety", "perplexed": "anxiety",
+    "intrigued": "joy", "confused": "anxiety", "uncertain": "anxiety",
+    "wonder": "joy", "curiosity": "joy"
+}
+
 
 # Map model labels -> your canonical labels.
 # Using a solid public model: j-hartmann/emotion-english-distilroberta-base
 # Model labels: anger, disgust, fear, joy, neutral, sadness, surprise
-MODEL_TO_CANON = {
-    "anger": "anger",
-    "disgust": "neutral",   # map to neutral (or anger; adjust if you prefer)
-    "fear": "anxiety",
-    "joy": "joy",
-    "neutral": "neutral",
-    "sadness": "sad",
-    "surprise": "neutral",  # map to neutral (or joy; adjust if you prefer)
-}
+
 
 AFFIRMATIONS = {
-    "joy":      "Savor this feeling—you’ve earned it.",
-    "sad":      "It’s okay to feel low; you won’t feel this way forever.",
-    "anxiety":  "You’ve handled hard things before—this is another step.",
-    "anger":    "Take a breath; your calm gives you control.",
-    "neutral":  "You’re steady and present—nice foundation to build on.",
+    "joy": [
+        "Savor this feeling—you’ve earned it.",
+        "Let yourself enjoy this moment without hesitation.",
+        "Your light helps others find theirs.",
+        "You deserve this peace and happiness.",
+        "Stay open to joy—it reminds you what’s good in life.",
+        "Keep this warmth close; you can return to it anytime.",
+        "Gratitude deepens happiness; notice what’s right today.",
+        "Happiness isn’t fragile—you’re allowed to feel good.",
+        "Let your smile linger—it’s healing in itself.",
+        "Be proud of how far you’ve come."
+    ],
+    "sad": [
+        "It’s okay to feel low; you won’t feel this way forever.",
+        "Tears are proof of your capacity to care.",
+        "You’re healing, even if it feels slow.",
+        "You’re not alone—others have felt this too.",
+        "Gentleness with yourself is strength, not weakness.",
+        "You’re allowed to rest; growth happens quietly too.",
+        "This sadness will pass, but your depth will remain.",
+        "Even in loss, you carry love forward.",
+        "Your softness is not a flaw—it’s a superpower.",
+        "Take this time to breathe and rebuild."
+    ],
+    "anger": [
+        "Take a breath; your calm gives you control.",
+        "Anger is information—listen to what it’s telling you.",
+        "You have every right to feel this, but you choose peace.",
+        "Your fire can fuel change, not destruction.",
+        "Breathe before you act; power doesn’t need noise.",
+        "Transform frustration into focus.",
+        "You’re learning to respond, not just react.",
+        "It’s okay to step away; calm is wisdom.",
+        "You’re not your anger—you’re the awareness behind it.",
+        "Let the storm pass before you steer."
+    ],
+    "anxiety": [
+        "You’ve handled hard things before—this is another step.",
+        "You are safe right now; breathe and notice your body.",
+        "It’s okay to pause before you decide.",
+        "You don’t have to have every answer today.",
+        "Even uncertainty has room for peace.",
+        "Breathe deeply—each exhale lets go of tension.",
+        "You are capable of handling what’s ahead.",
+        "Let thoughts float by; not all deserve your energy.",
+        "It’s okay to take things one minute at a time.",
+        "You’re not failing—you’re adapting."
+    ],
+    "neutral": [
+        "You’re steady and present—a good place to be.",
+        "Peace is a quiet kind of happiness.",
+        "You don’t always need intensity; calm is beautiful too.",
+        "Stillness is the soil where clarity grows.",
+        "You’re centered, balanced, and enough.",
+        "Not every moment needs meaning—this one simply is.",
+        "Appreciate the calm before the next wave.",
+        "Neutral moments can be grounding—stay with them.",
+        "You’re recharging, even if it feels uneventful.",
+        "This is your pause before progress."
+    ]
 }
+
 
 # Optionally override via env var
 MODEL_ID = os.getenv("HF_MODEL_ID", "j-hartmann/emotion-english-distilroberta-base")
