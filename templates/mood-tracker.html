@@ -1,34 +1,241 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mood Tracker</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Mood Tracker</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    :root{--bg:#0f172a;--card:#111827;--ring:#334155;--ink:#e5e7eb;--muted:#94a3b8;--accent:#6C63FF}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Inter,Roboto,sans-serif}
+    header{padding:16px 20px;border-bottom:1px solid var(--ring)}
+    header h1{margin:0;font-size:20px}
+    nav a{color:var(--ink);text-decoration:none;margin-right:14px;opacity:.8}
+    nav a.active,nav a:hover{opacity:1}
+    main{max-width:1200px;margin:0 auto;padding:20px}
+
+    /* === Layout: Left column (journal + wheel stacked), Right column (all entries) === */
+    .layout{display:grid;gap:18px}
+    @media (min-width:1100px){
+      .layout{grid-template-columns: 560px 1fr;}
+    }
+    .stack{display:grid;gap:18px} /* left stack: journal over wheel */
+
+    .card{background:var(--card);border:1px solid var(--ring);border-radius:16px;padding:16px}
+    .muted{color:var(--muted)}
+    .section-title{margin:0 0 10px;font-size:18px}
+    textarea{width:100%;min-height:140px;background:#0b1220;color:var(--ink);border:1px solid var(--ring);border-radius:12px;padding:12px}
+    button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    #moodWheel{display:block;margin:auto;border-radius:50%;background:#0b1220;border:1px solid #1f2937}
+    ul.entries{list-style:none;margin:0;padding:0}
+    ul.entries li{padding:12px 0;border-bottom:1px solid #1f2937}
+  </style>
 </head>
 <body>
-    <header>
-        <h1>Mood Tracker</h1>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/mood-tracker">Mood Tracker</a>
-            <a href="/entry">Entry</a>
-        </nav>
-    </header>
+  <header>
+    <h1>Mood Tracker</h1>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/entry">Entry</a>
+      <a href="/mood-tracker" class="active">Mood Tracker</a>
+      <a href="/all-entries">All Entries</a>
+    </nav>
+  </header>
 
-    <main>
-        {% if entries %}
-            <ul>
-                {% for entry in entries %}
-                    <li>
-                        <strong>Mood:</strong> {{ entry.mood }} <br>
-                        <strong>Entry:</strong> {{ entry.text }}
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p>No journal entries yet. Add one in the <a href="/entry">Entry</a> tab!</p>
-        {% endif %}
-    </main>
+  <main class="layout">
+    <!-- LEFT column: Journal (top) + Wheel (bottom) -->
+    <div class="stack">
+      <!-- Journal Entry (TOP LEFT) -->
+      <section id="entrySection" class="card">
+        <h2 class="section-title">Journal Entry</h2>
+        <textarea id="entryText" placeholder="Write what's on your mind…"></textarea>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
+          <button id="analyzeBtn">Analyze</button>
+          <span id="status" class="muted"></span>
+        </div>
+
+        <!-- Affirmation only (white & bold, no heading or POST URL) -->
+        <p id="affirmationText" style="margin:12px 0 0; color:#ffffff; font-weight:700;"></p>
+      </section>
+
+      <!-- Mood Wheel (UNDER journal) -->
+      <section id="wheelSection" class="card">
+        <h2 class="section-title">Mood Wheel</h2>
+        <canvas id="moodWheel" width="520" height="520"></canvas>
+        <div id="wheelCaption" class="muted" style="text-align:center;margin-top:8px;">Analyze to generate.</div>
+      </section>
+    </div>
+
+    <!-- RIGHT column: All Previous Entries -->
+    <section id="entriesSection" class="card">
+    <h2 class="section-title">All Previous Entries</h2>
+    {% if entries %}
+        <ul class="entries" id="entriesList">
+        {% for ts, entry, mood, affirmation in entries %}
+            <li class="entry-row" style="display:flex; gap:16px; padding:12px 0; border-bottom:1px solid #1f2937;">
+            <!-- Left: Entry text -->
+            <div class="entry-left" style="flex:1; min-width:0;">
+                {{ entry }}
+            </div>
+            <!-- Right: Timestamp (top) + Mood (below) -->
+            <div class="entry-right" style="text-align:right; white-space:nowrap;">
+                <div class="entry-ts" style="font-weight:600;">
+                {{ ts }}  <!-- will be reformatted by JS on load -->
+                </div>
+                <div class="entry-mood muted" style="margin-top:4px;">
+                {{ mood }}
+                </div>
+            </div>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p class="muted">No journal entries yet. Add one in the <a href="/entry">Entry</a> tab.</p>
+    {% endif %}
+    </section>
+  </main>
+
+  <script>
+    /* ====== CONFIG ====== */
+    const ANALYZE_URL = "{{ analyze_url|default('/analyze-and-save', true) }}";
+
+    /* ====== SAFE ACCESS TO WHEEL FUNCS (in case they load elsewhere) ====== */
+    const drawWheelEmptySafe = (typeof window.drawWheelEmpty === "function")
+    ? window.drawWheelEmpty
+    : function(title="Mood Wheel", subtitle="Analyze to generate"){};
+    const drawWheelFromScoresSafe = (typeof window.drawWheelFromScores === "function")
+    ? window.drawWheelFromScores
+    : function(/* scores, top, conf */){};
+
+    /* ====== TIME FORMATTER ======
+    e.g. "2025-10-09T21:05:00Z" -> "10/09/2025 at 9:05PM" */
+    function formatTimestamp(ts) {
+    try {
+        const d = new Date(ts);          // uses user's local timezone for display
+        const yyyy = d.getFullYear();
+        const mm   = String(d.getMonth() + 1).padStart(2, "0");
+        const dd   = String(d.getDate()).padStart(2, "0");
+        let hour   = d.getHours();
+        const ampm = hour >= 12 ? "PM" : "AM";
+        hour = hour % 12;
+        if (hour === 0) hour = 12;       // 12-hour clock
+        const min  = String(d.getMinutes()).padStart(2, "0");
+        return `${mm}/${dd}/${yyyy} at ${hour}:${min}${ampm}`;
+    } catch {
+        return ts || "";
+    }
+    }
+
+    /* ====== REBUILD "ALL PREVIOUS ENTRIES" LIST ======
+    Layout per item:
+    LEFT  : entry text
+    RIGHT : timestamp (bold), under it mood */
+    async function refreshEntries() {
+    try {
+        const r = await fetch("/log", { headers: { "Accept": "application/json" } });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json(); // [{timestamp, entry, mood, affirmation}, ...]
+        const list = document.getElementById("entriesList");
+        if (!list) return;
+
+        list.innerHTML = "";
+        (data || []).forEach(row => {
+        const li = document.createElement("li");
+        li.className = "entry-row";
+        li.style.cssText = "display:flex; gap:16px; padding:12px 0; border-bottom:1px solid #1f2937;";
+
+        // Left: entry text
+        const left = document.createElement("div");
+        left.className = "entry-left";
+        left.style.cssText = "flex:1; min-width:0;";
+        left.textContent = row.entry || "";
+
+        // Right: timestamp (bold) + mood (below)
+        const right = document.createElement("div");
+        right.className = "entry-right";
+        right.style.cssText = "text-align:right; white-space:nowrap;";
+
+        const ts = document.createElement("div");
+        ts.className = "entry-ts";
+        ts.style.cssText = "font-weight:600;";
+        ts.textContent = formatTimestamp(row.timestamp || "");
+
+        const mood = document.createElement("div");
+        mood.className = "entry-mood muted";
+        mood.style.cssText = "margin-top:4px;";
+        mood.textContent = row.mood || "";
+
+        right.append(ts, mood);
+        li.append(left, right);
+        list.appendChild(li);
+        });
+    } catch (e) {
+        console.warn("Failed to refresh entries:", e);
+    }
+    }
+
+    /* ====== ANALYZE BUTTON HANDLER (calls Flask proxy that saves to DB) ====== */
+    document.addEventListener("DOMContentLoaded", () => {
+    const entryEl  = document.getElementById("entryText");
+    const btn      = document.getElementById("analyzeBtn");
+    const statusEl = document.getElementById("status");
+    const affirmEl = document.getElementById("affirmationText"); // styled white & bold in HTML
+
+    // initial population of the entries panel
+    refreshEntries();
+
+    btn.addEventListener("click", async () => {
+        const text = (entryEl?.value || "").trim();
+        if (!text) {
+        statusEl.textContent = "Please write a sentence first.";
+        if (affirmEl) affirmEl.textContent = "";
+        drawWheelEmptySafe("Mood Wheel", "Enter text to analyze");
+        return;
+        }
+
+        statusEl.textContent = "Analyzing…";
+        if (affirmEl) affirmEl.textContent = "";
+
+        try {
+        const r = await fetch(ANALYZE_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text })   // Flask proxy forwards to FastAPI and saves to DB
+        });
+
+        const raw = await r.text();
+        let data;
+        try { data = JSON.parse(raw); } catch { data = null; }
+
+        if (!r.ok || !data) {
+            statusEl.textContent = "Error";
+            if (affirmEl) affirmEl.textContent = "Analysis unavailable right now.";
+            drawWheelEmptySafe("Error", "Check analyzer");
+            return;
+        }
+
+        // FastAPI returns { emotion, confidence, scores, top_words, affirmation }
+        const top    = data.emotion ?? null;
+        const conf   = (typeof data.confidence === "number") ? data.confidence : null;
+        const scores = data.scores ?? {};
+        const affirm = data.affirmation ?? "";
+
+        drawWheelFromScoresSafe(scores, top, conf);
+        statusEl.textContent =
+            `${(top || 'Detected').toString().toUpperCase()}${conf!=null ? ' · ' + Math.round(conf*100) + '%' : ''}`;
+
+        if (affirmEl) affirmEl.textContent = affirm;
+
+        // refresh right-hand "All Previous Entries" after saving
+        await refreshEntries();
+        } catch (err) {
+        statusEl.textContent = "Network error";
+        if (affirmEl) affirmEl.textContent = "Analysis unavailable (network).";
+        drawWheelEmptySafe("Network error", "See console/logs");
+        }
+    });
+    });
+    </script>
 </body>
 </html>

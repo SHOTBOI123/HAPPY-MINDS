@@ -15,7 +15,7 @@ import sqlite3
 from datetime import datetime
 
 
-DB_PATH = "data/journal.db"
+DB_PATH = "db/app.db"
 
 
 
@@ -122,9 +122,6 @@ def get_log_entries():
            "affirmation": affirmation
        })
    return formatted
-
-
-
 
 # -------------------------------------------------
 #  Clear Data for Testing

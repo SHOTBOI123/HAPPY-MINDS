@@ -7,7 +7,8 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from typing import Dict, List
-import os, uuid, json, re, math
+from fastapi.middleware.cors import CORSMiddleware
+import os, uuid, json, re, random
 
 from transformers import pipeline
 import torch
@@ -29,7 +30,10 @@ class AnalyzeOut(BaseModel):
 # Config
 # ---------------------------
 # Canonical labels exposed by your API:
-CANON_LABELS = {
+CANON_LABELS = ["joy", "sad", "anxiety", "anger", "neutral"]
+
+
+MODEL_TO_CANON = {
     # 💛 JOY / HAPPINESS
     "joy": "joy", "joyful": "joy", "happy": "joy", "happiness": "joy",
     "cheerful": "joy", "content": "joy", "contentment": "joy",
@@ -168,6 +172,14 @@ MODEL_ID = os.getenv("HF_MODEL_ID", "j-hartmann/emotion-english-distilroberta-ba
 # ---------------------------
 app = FastAPI(title="Emotion Analysis API", version="1.0.0")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:5001","http://localhost:5001"],
+    allow_credentials=True,
+    allow_methods=["POST","OPTIONS"],
+    allow_headers=["*"],
+)
+
 # Load the classifier once at startup
 clf = pipeline(
     task="text-classification",
@@ -224,7 +236,7 @@ def build_response_for_text(text: str) -> AnalyzeOut:
     emotion = max(scores.items(), key=lambda kv: kv[1])[0]
     confidence = float(scores[emotion])
     top_words = extract_top_words(text, k=3)
-    affirmation = AFFIRMATIONS.get(emotion, "You’re doing your best—keep going.")
+    affirmation = pick_affirmation(emotion)
 
     return AnalyzeOut(
         emotion=emotion,
@@ -233,6 +245,13 @@ def build_response_for_text(text: str) -> AnalyzeOut:
         top_words=top_words,
         affirmation=affirmation,
     )
+
+def pick_affirmation(emotion: str) -> str:
+    opts = AFFIRMATIONS.get(emotion)
+    if isinstance(opts, list) and opts:
+        return random.choice(opts)
+    # fallback if emotion missing or list empty
+    return "Error, System Missing Response"
 
 # ---------------------------
 # Routes
