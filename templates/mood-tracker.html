@@ -3,239 +3,542 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Mood Tracker</title>
+  <title>Mood Tracker · Aurora Journal</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <style>
-    :root{--bg:#0f172a;--card:#111827;--ring:#334155;--ink:#e5e7eb;--muted:#94a3b8;--accent:#6C63FF}
-    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Inter,Roboto,sans-serif}
-    header{padding:16px 20px;border-bottom:1px solid var(--ring)}
-    header h1{margin:0;font-size:20px}
-    nav a{color:var(--ink);text-decoration:none;margin-right:14px;opacity:.8}
-    nav a.active,nav a:hover{opacity:1}
-    main{max-width:1200px;margin:0 auto;padding:20px}
-
-    /* === Layout: Left column (journal + wheel stacked), Right column (all entries) === */
-    .layout{display:grid;gap:18px}
-    @media (min-width:1100px){
-      .layout{grid-template-columns: 560px 1fr;}
+    :root{
+      --bg:#0f172a;      /* page */
+      --surface:#111827; /* cards/header */
+      --ring:#334155;    /* borders */
+      --ink:#e5e7eb;     /* text */
+      --muted:#94a3b8;   /* secondary text */
+      --accent:#6C63FF;  /* brand */
+      --radius:16px;
+      --gap:18px;
     }
-    .stack{display:grid;gap:18px} /* left stack: journal over wheel */
 
-    .card{background:var(--card);border:1px solid var(--ring);border-radius:16px;padding:16px}
-    .muted{color:var(--muted)}
+    /* Base */
+    html,body{height:100%}
+    body{
+      margin:0;background:var(--bg);color:var(--ink);
+      font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Header (matches index.html) */
+    header{
+      background:var(--surface);
+      border-bottom:2px solid var(--ring);
+      padding:16px 0;
+      text-align:center;
+    }
+    header h1{margin:0;color:var(--accent);font-size:2rem}
+    nav a{color:var(--ink);text-decoration:none;margin:0 .75rem}
+    nav a.active{color:var(--accent);text-decoration:underline}
+
+    /* Layout */
+    main{max-width:1200px;margin:0 auto;padding:20px}
+    .layout{display:grid;gap:var(--gap)}
+    @media (min-width:1100px){ .layout{grid-template-columns:560px 1fr} }
+    .stack{display:grid;gap:var(--gap);align-items:start}
+
+    /* Card */
+    .card{
+      background:rgba(17,24,39,.9);
+      border:1px solid var(--ring);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow:0 8px 22px rgba(0,0,0,.35);
+      animation:fadein .6s ease both;
+    }
+    @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
     .section-title{margin:0 0 10px;font-size:18px}
-    textarea{width:100%;min-height:140px;background:#0b1220;color:var(--ink);border:1px solid var(--ring);border-radius:12px;padding:12px}
-    button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
-    button:disabled{opacity:.6;cursor:not-allowed}
-    #moodWheel{display:block;margin:auto;border-radius:50%;background:#0b1220;border:1px solid #1f2937}
-    ul.entries{list-style:none;margin:0;padding:0}
-    ul.entries li{padding:12px 0;border-bottom:1px solid #1f2937}
+    .muted{color:var(--muted)}
+
+    /* Form */
+    .field{display:grid;gap:8px}
+    label{font-weight:600}
+    textarea{
+      width:100%;min-height:140px;resize:vertical;
+      background:#0b1220;color:var(--ink);
+      border:1px solid var(--ring);border-radius:12px;padding:12px
+    }
+    .actions{display:flex;gap:10px;align-items:center}
+    button{
+      background:var(--accent);color:#fff;border:none;
+      border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;
+      transition:filter .15s ease, transform .02s ease
+    }
+    button:hover{filter:brightness(1.05)}
+    button:active{transform:translateY(1px)}
+    button:focus-visible{outline:3px solid #a5b4fc;outline-offset:2px}
+    button[aria-busy="true"]{cursor:progress;opacity:.8}
+    #status,#affirmationText{min-height:1.25em}
+    #affirmationText{font-weight:700}
+
+    /* Canvas */
+    #moodWheel{
+      display:block;margin:auto;width:100%;max-width:520px;
+      background:#0b1220;border:none;border-radius:12px;
+    }
+
+    /* Chat Interface */
+    .chat-messages{
+      background:rgba(11,18,32,0.5);
+      border:1px solid rgba(51,65,85,0.4);
+      border-radius:10px;
+      padding:12px;
+    }
+    .chat-message{
+      margin-bottom:12px;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .chat-message.user{
+      align-items:flex-end;
+    }
+    .chat-message.assistant{
+      align-items:flex-start;
+    }
+    .chat-bubble{
+      max-width:85%;
+      padding:10px 14px;
+      border-radius:12px;
+      word-wrap:break-word;
+      white-space:pre-wrap;
+      line-height:1.5;
+      font-size:14px;
+    }
+    .chat-bubble.user{
+      background:var(--accent);
+      color:#fff;
+      border-bottom-right-radius:4px;
+    }
+    .chat-bubble.assistant{
+      background:rgba(51,65,85,0.6);
+      color:var(--ink);
+      border-bottom-left-radius:4px;
+    }
+    .chat-placeholder{
+      opacity:0.7;
+    }
+    .chat-input-container{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    /* Entries */
+    .entries{list-style:none;margin:0;padding:0}
+    .entry-row{display:flex;gap:16px;padding:12px 0;border-bottom:1px solid #1f2937}
+    .entry-left{flex:1;min-width:0;white-space:pre-wrap;word-wrap:break-word}
+    .entry-right{text-align:right;white-space:nowrap}
+    .empty{margin:6px 0 0}
+
   </style>
 </head>
 <body>
-  <header>
-    <h1>Mood Tracker</h1>
+  <!-- Header copied from index.html -->
+  <header id="site-header">
+    <h1>Aurora Journal</h1>
     <nav>
       <a href="/">Home</a>
-      <a href="/entry">Entry</a>
-      <a href="/mood-tracker" class="active">Mood Tracker</a>
-      <a href="/all-entries">All Entries</a>
+      <a href="/mood-tracker" class="active">Journal</a>
     </nav>
   </header>
 
   <main class="layout">
-    <!-- LEFT column: Journal (top) + Wheel (bottom) -->
     <div class="stack">
-      <!-- Journal Entry (TOP LEFT) -->
-      <section id="entrySection" class="card">
-        <h2 class="section-title">Journal Entry</h2>
-        <textarea id="entryText" placeholder="Write what's on your mind…"></textarea>
-        <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
-          <button id="analyzeBtn">Analyze</button>
-          <span id="status" class="muted"></span>
-        </div>
 
-        <!-- Affirmation only (white & bold, no heading or POST URL) -->
-        <p id="affirmationText" style="margin:12px 0 0; color:#ffffff; font-weight:700;"></p>
+      <!-- Journal Card -->
+      <section id="entrySection" class="card" aria-labelledby="entryTitle">
+        <h2 id="entryTitle" class="section-title">Journal Entry</h2>
+
+        <form id="entryForm" class="field" novalidate>
+          <label for="entryText">What’s on your mind?</label>
+          <textarea id="entryText" name="entryText" placeholder="Write a few thoughts…"></textarea>
+
+          <div class="actions">
+            <button id="analyzeBtn" type="submit">Analyze</button>
+            <span id="status" class="muted" role="status" aria-live="polite"></span>
+          </div>
+
+          <p id="affirmationText" aria-live="polite"></p>
+        </form>
       </section>
 
-      <!-- Mood Wheel (UNDER journal) -->
-      <section id="wheelSection" class="card">
-        <h2 class="section-title">Mood Wheel</h2>
-        <canvas id="moodWheel" width="520" height="520"></canvas>
+      <!-- Wheel Card -->
+      <section id="wheelSection" class="card" aria-labelledby="wheelTitle">
+        <h2 id="wheelTitle" class="section-title">Mood Wheel</h2>
+        <canvas id="moodWheel" aria-label="Mood visualization"></canvas>
         <div id="wheelCaption" class="muted" style="text-align:center;margin-top:8px;">Analyze to generate.</div>
+      </section>
+
+      <!-- Gemini Chat Card -->
+      <section id="geminiSection" class="card" aria-labelledby="geminiTitle">
+        <h2 id="geminiTitle" class="section-title">Aurora</h2>
+        <div id="chatMessages" class="chat-messages" style="min-height:200px;max-height:400px;overflow-y:auto;margin-bottom:12px;">
+          <div class="chat-placeholder muted" style="text-align:center;padding:20px;">
+            Analyze your entry to start a conversation.
+          </div>
+        </div>
+        <div id="chatInputContainer" class="chat-input-container" style="display:none;">
+          <input type="text" id="chatInput" placeholder="Type your message..." 
+                 style="width:100%;padding:10px;background:#0b1220;color:var(--ink);border:1px solid var(--ring);border-radius:8px;font-size:14px;"
+                 autocomplete="off">
+          <button id="chatSendBtn" type="button" 
+                  style="margin-top:8px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:600;cursor:pointer;width:100%;">
+            Send
+          </button>
+        </div>
+        <div id="geminiStatus" class="muted" style="font-size:0.875em;margin-top:8px;"></div>
       </section>
     </div>
 
-    <!-- RIGHT column: All Previous Entries -->
-    <section id="entriesSection" class="card">
-    <h2 class="section-title">All Previous Entries</h2>
-    {% if entries %}
-        <ul class="entries" id="entriesList">
-        {% for ts, entry, mood, affirmation in entries %}
-            <li class="entry-row" style="display:flex; gap:16px; padding:12px 0; border-bottom:1px solid #1f2937;">
-            <!-- Left: Entry text -->
-            <div class="entry-left" style="flex:1; min-width:0;">
-                {{ entry }}
+    <!-- Entries Card -->
+    <section id="entriesSection" class="card" aria-labelledby="entriesTitle">
+      <h2 id="entriesTitle" class="section-title">All Previous Entries</h2>
+      <ul class="entries" id="entriesList">
+        {% for ts, entry, mood, affirmation in (entries or []) %}
+          <li class="entry-row">
+            <div class="entry-left">{{ entry }}</div>
+            <div class="entry-right">
+              <div class="entry-ts" style="font-weight:600;">{{ ts }}</div>
+              <div class="entry-mood muted" style="margin-top:4px;">{{ mood }}</div>
             </div>
-            <!-- Right: Timestamp (top) + Mood (below) -->
-            <div class="entry-right" style="text-align:right; white-space:nowrap;">
-                <div class="entry-ts" style="font-weight:600;">
-                {{ ts }}  <!-- will be reformatted by JS on load -->
-                </div>
-                <div class="entry-mood muted" style="margin-top:4px;">
-                {{ mood }}
-                </div>
-            </div>
-            </li>
+          </li>
         {% endfor %}
-        </ul>
-    {% else %}
-        <p class="muted">No journal entries yet. Add one in the <a href="/entry">Entry</a> tab.</p>
-    {% endif %}
+      </ul>
+      <p id="noEntriesMsg" class="muted empty" {% if entries %}style="display:none"{% endif %}>
+        No journal entries yet. Add one above and we’ll show them here.
+      </p>
     </section>
   </main>
 
   <script>
-    /* ====== CONFIG ====== */
-    const ANALYZE_URL = "{{ analyze_url|default('/analyze-and-save', true) }}";
+    const ANALYZE_URL = "{{ analyze_url or '/analyze-and-save' }}";
 
-    /* ====== SAFE ACCESS TO WHEEL FUNCS (in case they load elsewhere) ====== */
-    const drawWheelEmptySafe = (typeof window.drawWheelEmpty === "function")
-    ? window.drawWheelEmpty
-    : function(title="Mood Wheel", subtitle="Analyze to generate"){};
-    const drawWheelFromScoresSafe = (typeof window.drawWheelFromScores === "function")
-    ? window.drawWheelFromScores
-    : function(/* scores, top, conf */){};
-
-    /* ====== TIME FORMATTER ======
-    e.g. "2025-10-09T21:05:00Z" -> "10/09/2025 at 9:05PM" */
-    function formatTimestamp(ts) {
-    try {
-        const d = new Date(ts);          // uses user's local timezone for display
-        const yyyy = d.getFullYear();
-        const mm   = String(d.getMonth() + 1).padStart(2, "0");
-        const dd   = String(d.getDate()).padStart(2, "0");
-        let hour   = d.getHours();
-        const ampm = hour >= 12 ? "PM" : "AM";
-        hour = hour % 12;
-        if (hour === 0) hour = 12;       // 12-hour clock
-        const min  = String(d.getMinutes()).padStart(2, "0");
-        return `${mm}/${dd}/${yyyy} at ${hour}:${min}${ampm}`;
-    } catch {
-        return ts || "";
-    }
+    /* ---------- Utilities ---------- */
+    function formatTimestamp(ts){
+      try{
+        const d=new Date(ts);
+        const yyyy=d.getFullYear(),mm=String(d.getMonth()+1).padStart(2,"0");
+        const dd=String(d.getDate()).padStart(2,"0");
+        let h=d.getHours();const ampm=h>=12?"PM":"AM";h=h%12;if(h===0)h=12;
+        const m=String(d.getMinutes()).padStart(2,"0");
+        return `${mm}/${dd}/${yyyy} at ${h}:${m}${ampm}`;
+      }catch{return ts||""}
     }
 
-    /* ====== REBUILD "ALL PREVIOUS ENTRIES" LIST ======
-    Layout per item:
-    LEFT  : entry text
-    RIGHT : timestamp (bold), under it mood */
-    async function refreshEntries() {
-    try {
-        const r = await fetch("/log", { headers: { "Accept": "application/json" } });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json(); // [{timestamp, entry, mood, affirmation}, ...]
-        const list = document.getElementById("entriesList");
-        if (!list) return;
+    const EMOTIONS=[
+      { key:"anger",label:"Anger",color:"#ef4444",emoji:"😡"},
+      { key:"sad",label:"Sadness",color:"#f97316",emoji:"😞"},
+      { key:"neutral",label:"Neutral",color:"#a3a3a3",emoji:"😐"},
+      { key:"joy",label:"Joy",color:"#facc15",emoji:"😊"},
+      { key:"anxiety",label:"Anxiety",color:"#3b82f6",emoji:"😰"},
+    ];
+    const ALIASES={
+      joy:"joy",happy:"joy",happiness:"joy",
+      neutral:"neutral",calm:"neutral",
+      anger:"anger",angry:"anger",rage:"anger",
+      sadness:"sad",sad:"sad",
+      anxiety:"anxiety",fear:"anxiety",stressed:"anxiety",stress:"anxiety",worry:"anxiety"
+    };
 
-        list.innerHTML = "";
-        (data || []).forEach(row => {
-        const li = document.createElement("li");
-        li.className = "entry-row";
-        li.style.cssText = "display:flex; gap:16px; padding:12px 0; border-bottom:1px solid #1f2937;";
+    /* ---------- Canvas sizing & drawing ---------- */
+    function sizeWheelCanvas(canvas){
+      const cssW=Math.min(canvas.clientWidth||520,520);
+      const dpr=window.devicePixelRatio||1;
+      canvas.width=Math.round(cssW*dpr);
+      const R=canvas.width*0.9;
+      const PAD_TOP=Math.round(12*dpr), PAD_BOTTOM=Math.round(8*dpr);
+      canvas.height=Math.round(PAD_TOP+(R/2)+PAD_BOTTOM);
+      canvas.style.width=cssW+"px";
+      canvas.style.height=Math.round(canvas.height/dpr)+"px";
+      return {dpr,PAD_TOP,PAD_BOTTOM};
+    }
+    function drawWheelBase(ctx,W,H,opts){
+      const dpr=opts?.dpr||1, PAD_TOP=opts?.PAD_TOP||12*dpr;
+      const R=Math.min(W,H*2)*0.9, cx=W/2, cy=PAD_TOP+R/2;
+      const N=EMOTIONS.length, startAngle=Math.PI, span=Math.PI/N;
 
-        // Left: entry text
-        const left = document.createElement("div");
-        left.className = "entry-left";
-        left.style.cssText = "flex:1; min-width:0;";
-        left.textContent = row.entry || "";
+      ctx.clearRect(0,0,W,H);
 
-        // Right: timestamp (bold) + mood (below)
-        const right = document.createElement("div");
-        right.className = "entry-right";
-        right.style.cssText = "text-align:right; white-space:nowrap;";
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,R/2,Math.PI,0,false);
+      ctx.closePath(); ctx.clip();
 
-        const ts = document.createElement("div");
-        ts.className = "entry-ts";
-        ts.style.cssText = "font-weight:600;";
-        ts.textContent = formatTimestamp(row.timestamp || "");
+      for(let i=0;i<N;i++){
+        const a0=startAngle+i*span, a1=a0+span;
+        ctx.beginPath(); ctx.moveTo(cx,cy);
+        ctx.arc(cx,cy,R/2,a0,a1,false);
+        ctx.closePath(); ctx.fillStyle=EMOTIONS[i].color; ctx.fill();
+      }
 
-        const mood = document.createElement("div");
-        mood.className = "entry-mood muted";
-        mood.style.cssText = "margin-top:4px;";
-        mood.textContent = row.mood || "";
+      ctx.lineWidth=2*dpr; ctx.strokeStyle="rgba(255,255,255,0.28)";
+      for(let i=1;i<N;i++){
+        const a=startAngle+i*span;
+        ctx.beginPath(); ctx.moveTo(cx,cy);
+        ctx.lineTo(cx+(R/2)*Math.cos(a), cy+(R/2)*Math.sin(a)); ctx.stroke();
+      }
 
-        right.append(ts, mood);
-        li.append(left, right);
-        list.appendChild(li);
+      ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.font=`${Math.round(20*dpr)}px system-ui, 'Segoe UI', Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji`;
+      ctx.fillStyle="#e5e7eb";
+      const labelRadius=(R/2)*0.72;
+      for(let i=0;i<N;i++){
+        const mid=startAngle+(i+0.5)*span;
+        const x=cx+labelRadius*Math.cos(mid), y=cy+labelRadius*Math.sin(mid);
+        ctx.shadowColor="rgba(0,0,0,0.35)"; ctx.shadowBlur=6*dpr;
+        ctx.fillText(EMOTIONS[i].emoji,x,y);
+      }
+      ctx.restore();
+
+      ctx.beginPath(); ctx.arc(cx,cy,R/2,Math.PI,0,false);
+      ctx.lineWidth=3*dpr; ctx.strokeStyle="#334155"; ctx.stroke();
+
+      return {cx,cy,R,startAngle,span};
+    }
+    function drawHighlight(ctx, geom){
+      const {cx,cy,R,startAngle,span,idx}=geom;
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,R/2,Math.PI,0,false); ctx.closePath(); ctx.clip();
+
+      ctx.save(); ctx.globalCompositeOperation="multiply";
+      for(let i=0;i<EMOTIONS.length;i++){
+        if(i===idx) continue;
+        const s0=startAngle+i*span, s1=s0+span;
+        ctx.beginPath(); ctx.moveTo(cx,cy);
+        ctx.arc(cx,cy,R/2,s0,s1,false); ctx.closePath();
+        ctx.fillStyle="rgba(15,23,42,0.55)"; ctx.fill();
+      }
+      ctx.restore();
+
+      const a0=startAngle+idx*span, a1=a0+span;
+      ctx.beginPath(); ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,R/2,a0,a1,false); ctx.closePath();
+      const grad=ctx.createRadialGradient(cx,cy,R*0.05,cx,cy,R*0.6);
+      grad.addColorStop(0,"rgba(255,255,255,0.42)");
+      grad.addColorStop(1,"rgba(255,255,255,0.00)");
+      ctx.fillStyle=grad; ctx.fill();
+
+      ctx.restore();
+      ctx.beginPath(); ctx.arc(cx,cy,R/2,Math.PI,0,false);
+      ctx.lineWidth=3; ctx.strokeStyle="#334155"; ctx.stroke();
+    }
+
+    function topIdxFrom(scores, top){
+      if(top){
+        const k = (ALIASES[String(top).toLowerCase()] || "").toLowerCase();
+        const i = EMOTIONS.findIndex(e=>e.key===k);
+        if(i>=0) return i;
+      }
+      const map={anger:0,sadness:0,neutral:0,joy:0,anxiety:0};
+      for(const [k,v] of Object.entries(scores||{})){
+        const key=ALIASES[(k||"").toLowerCase()];
+        const num=Number(v);
+        if(key && isFinite(num)) map[key]=Math.max(map[key], num);
+      }
+      const ranked=EMOTIONS.map((e,i)=>({i,v:map[e.key]||0})).sort((a,b)=>b.v-a.v);
+      return (ranked[0]?.v ?? 0) > 0 ? ranked[0].i : -1;
+    }
+
+    /* ---------- Entries ---------- */
+    async function refreshEntries(){
+      try{
+        const r=await fetch("/log",{headers:{Accept:"application/json"}});
+        if(!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data=await r.json();
+
+        const list=document.getElementById("entriesList");
+        const emptyMsg=document.getElementById("noEntriesMsg");
+        list.innerHTML="";
+
+        (data||[]).forEach(row=>{
+          const li=document.createElement("li"); li.className="entry-row";
+          const left=document.createElement("div"); left.className="entry-left"; left.textContent=row.entry||"";
+          const right=document.createElement("div"); right.className="entry-right";
+          const ts=document.createElement("div"); ts.className="entry-ts"; ts.style.fontWeight="600"; ts.textContent=formatTimestamp(row.timestamp||"");
+          const mood=document.createElement("div"); mood.className="entry-mood muted"; mood.style.marginTop="4px"; mood.textContent=row.mood||"";
+          right.append(ts,mood); li.append(left,right); list.appendChild(li);
         });
-    } catch (e) {
-        console.warn("Failed to refresh entries:", e);
+
+        emptyMsg.style.display = list.children.length ? "none" : "";
+      }catch(e){ console.warn("Failed to refresh entries:", e); }
     }
-    }
 
-    /* ====== ANALYZE BUTTON HANDLER (calls Flask proxy that saves to DB) ====== */
-    document.addEventListener("DOMContentLoaded", () => {
-    const entryEl  = document.getElementById("entryText");
-    const btn      = document.getElementById("analyzeBtn");
-    const statusEl = document.getElementById("status");
-    const affirmEl = document.getElementById("affirmationText"); // styled white & bold in HTML
+    /* ---------- Wire up ---------- */
+    document.addEventListener("DOMContentLoaded",()=>{
+      // Wheel
+      const canvas=document.getElementById("moodWheel");
+      const ctx=canvas.getContext("2d");
+      const caption=document.getElementById("wheelCaption");
 
-    // initial population of the entries panel
-    refreshEntries();
+      function renderBase(){
+        const opts=sizeWheelCanvas(canvas);
+        const geom=drawWheelBase(ctx,canvas.width,canvas.height,opts);
+        canvas._wheelGeom={...geom};
+        caption.textContent="Analyze to generate.";
+      }
+      renderBase();
+      window.addEventListener("resize", renderBase, {passive:true});
+      window.drawWheelEmpty=renderBase;
+      window.drawWheelFromScores=(scores,top=null,conf=null)=>{
+        const opts=sizeWheelCanvas(canvas);
+        const geom=drawWheelBase(ctx,canvas.width,canvas.height,opts);
+        const idx=topIdxFrom(scores, top);
+        if(idx>=0) drawHighlight(ctx,{...geom,idx});
+        const pct = (typeof conf==="number"&&isFinite(conf)) ? ` · ${Math.round(conf*100)}%` : "";
+        caption.textContent = idx>=0 ? `${EMOTIONS[idx].label}${pct}` : "—";
+      };
 
-    btn.addEventListener("click", async () => {
-        const text = (entryEl?.value || "").trim();
-        if (!text) {
-        statusEl.textContent = "Please write a sentence first.";
-        if (affirmEl) affirmEl.textContent = "";
-        drawWheelEmptySafe("Mood Wheel", "Enter text to analyze");
-        return;
+      // Form
+      const form=document.getElementById("entryForm");
+      const entryEl=document.getElementById("entryText");
+      const btn=document.getElementById("analyzeBtn");
+      const statusEl=document.getElementById("status");
+      const affirmEl=document.getElementById("affirmationText");
+      const geminiStatusEl=document.getElementById("geminiStatus");
+
+      // Chat elements
+      const chatMessagesEl=document.getElementById("chatMessages");
+      const chatInputContainer=document.getElementById("chatInputContainer");
+      const chatInput=document.getElementById("chatInput");
+      const chatSendBtn=document.getElementById("chatSendBtn");
+      let chatHistory=[];
+
+      // Chat helper functions
+      function addChatMessage(role,content){
+        const placeholder=chatMessagesEl.querySelector(".chat-placeholder");
+        if(placeholder) placeholder.remove();
+        
+        const msgDiv=document.createElement("div");
+        msgDiv.className=`chat-message ${role}`;
+        const bubble=document.createElement("div");
+        bubble.className=`chat-bubble ${role}`;
+        bubble.textContent=content;
+        msgDiv.appendChild(bubble);
+        chatMessagesEl.appendChild(msgDiv);
+        chatMessagesEl.scrollTop=chatMessagesEl.scrollHeight;
+      }
+
+      async function sendChatMessage(message,isInitial=false,journalEntry="",emotion=""){
+        try{
+          if(!isInitial && !message.trim()) return;
+          
+          if(!isInitial){
+            addChatMessage("user",message);
+            chatInput.value="";
+            chatSendBtn.disabled=true;
+            geminiStatusEl.textContent="AI is typing...";
+          }else{
+            geminiStatusEl.textContent="Starting conversation...";
+          }
+
+          const response=await fetch("/gemini-chat",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+              message:isInitial ? "" : message,
+              is_initial:isInitial,
+              journal_entry:journalEntry,
+              emotion:emotion,
+              history:chatHistory
+            })
+          });
+
+          if(!response.ok) throw new Error("Chat request failed");
+          const data=await response.json();
+          
+          if(data.history){
+            chatHistory=data.history;
+          }
+          
+          addChatMessage("assistant",data.message);
+          geminiStatusEl.textContent="";
+          
+          if(isInitial){
+            chatInputContainer.style.display="flex";
+            chatInput.focus();
+          }
+        }catch(err){
+          console.error("Chat error:",err);
+          geminiStatusEl.textContent="Chat unavailable. Please try again.";
+          addChatMessage("assistant","I'm having trouble responding right now. Please try again in a moment.");
+        }finally{
+          chatSendBtn.disabled=false;
+        }
+      }
+
+      // Chat send handlers
+      chatSendBtn.addEventListener("click",()=>{
+        const msg=chatInput.value.trim();
+        if(msg) sendChatMessage(msg);
+      });
+      chatInput.addEventListener("keypress",(e)=>{
+        if(e.key==="Enter" && !e.shiftKey){
+          e.preventDefault();
+          chatSendBtn.click();
+        }
+      });
+
+      refreshEntries();
+
+      form.addEventListener("submit", async (e)=>{
+        e.preventDefault();
+        const text=(entryEl?.value||"").trim();
+        if(!text){
+          statusEl.textContent="Please write a sentence first.";
+          affirmEl.textContent="";
+          window.drawWheelEmpty();
+          return;
         }
 
-        statusEl.textContent = "Analyzing…";
-        if (affirmEl) affirmEl.textContent = "";
+        btn.setAttribute("aria-busy","true");
+        statusEl.textContent="Analyzing…";
+        affirmEl.textContent="";
+        geminiStatusEl.textContent="";
 
-        try {
-        const r = await fetch(ANALYZE_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text })   // Flask proxy forwards to FastAPI and saves to DB
-        });
+        // Reset chat
+        chatMessagesEl.innerHTML='<div class="chat-placeholder muted" style="text-align:center;padding:20px;">Starting conversation...</div>';
+        chatInputContainer.style.display="none";
+        chatHistory=[];
 
-        const raw = await r.text();
-        let data;
-        try { data = JSON.parse(raw); } catch { data = null; }
+        try{
+          const r=await fetch(ANALYZE_URL,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({text})
+          });
+          const raw=await r.text(); let data=null; try{data=JSON.parse(raw);}catch{}
+          if(!r.ok||!data){ throw new Error("Bad response"); }
 
-        if (!r.ok || !data) {
-            statusEl.textContent = "Error";
-            if (affirmEl) affirmEl.textContent = "Analysis unavailable right now.";
-            drawWheelEmptySafe("Error", "Check analyzer");
-            return;
+          const top=data.emotion??null;
+          const conf=(typeof data.confidence==="number")?data.confidence:null;
+          const scores=data.scores??{};
+          const affirm=data.affirmation??"";
+
+          window.drawWheelFromScores(scores, top, conf);
+          statusEl.textContent=`${(top||'Detected').toString().toUpperCase()}${conf!=null?' · '+Math.round(conf*100)+'%':''}`;
+          affirmEl.textContent=affirm;
+
+          await refreshEntries();
+
+          // Start Gemini chat conversation
+          await sendChatMessage("",true,text,top||"unknown");
+        }catch(err){
+          statusEl.textContent="Analysis unavailable right now.";
+          affirmEl.textContent="";
+          chatMessagesEl.innerHTML='<div class="chat-placeholder muted" style="text-align:center;padding:20px;">Please try again.</div>';
+          geminiStatusEl.textContent="";
+          window.drawWheelEmpty();
+        }finally{
+          btn.removeAttribute("aria-busy");
         }
-
-        // FastAPI returns { emotion, confidence, scores, top_words, affirmation }
-        const top    = data.emotion ?? null;
-        const conf   = (typeof data.confidence === "number") ? data.confidence : null;
-        const scores = data.scores ?? {};
-        const affirm = data.affirmation ?? "";
-
-        drawWheelFromScoresSafe(scores, top, conf);
-        statusEl.textContent =
-            `${(top || 'Detected').toString().toUpperCase()}${conf!=null ? ' · ' + Math.round(conf*100) + '%' : ''}`;
-
-        if (affirmEl) affirmEl.textContent = affirm;
-
-        // refresh right-hand "All Previous Entries" after saving
-        await refreshEntries();
-        } catch (err) {
-        statusEl.textContent = "Network error";
-        if (affirmEl) affirmEl.textContent = "Analysis unavailable (network).";
-        drawWheelEmptySafe("Network error", "See console/logs");
-        }
+      });
     });
-    });
-    </script>
+  </script>
 </body>
 </html>

@@ -41,10 +41,10 @@ MODEL_TO_CANON = {
     "ecstatic": "joy", "elated": "joy", "enthusiastic": "joy",
     "excited": "joy", "grateful": "joy", "hopeful": "joy",
     "optimistic": "joy", "loving": "joy", "affectionate": "joy",
-    "inspired": "joy", "proud": "joy", "playful": "joy", "peaceful": "joy",
+    "inspired": "joy", "proud": "joy", "playful": "joy",
     "amused": "joy", "blissful": "joy", "radiant": "joy",
     "thrilled": "joy", "joyous": "joy", "thankful": "joy",
-    "curious": "joy", "serene": "joy", "wonder": "joy",
+    "wonder": "joy",
 
     # 💙 SADNESS / GRIEF
     "sad": "sad", "sadness": "sad", "unhappy": "sad", "heartbroken": "sad",
@@ -74,7 +74,7 @@ MODEL_TO_CANON = {
     "tense": "anxiety", "stressed": "anxiety", "panicked": "anxiety",
     "insecure": "anxiety", "confused": "anxiety", "uncertain": "anxiety",
     "doubtful": "anxiety", "overwhelmed": "anxiety", "startled": "anxiety",
-    "alarmed": "anxiety", "shaken": "anxiety", "worried": "anxiety",
+    "alarmed": "anxiety", "shaken": "anxiety",
     "apprehensive": "anxiety", "concerned": "anxiety", "distrustful": "anxiety",
 
     # 🩶 NEUTRAL / CALM / MIXED
@@ -89,9 +89,8 @@ MODEL_TO_CANON = {
 
     # 🧡 SURPRISE / MIXED STATES
     "surprised": "neutral", "shocked": "neutral", "amazed": "neutral",
-    "astonished": "neutral", "startled": "anxiety", "perplexed": "anxiety",
-    "intrigued": "joy", "confused": "anxiety", "uncertain": "anxiety",
-    "wonder": "joy", "curiosity": "joy"
+    "astonished": "neutral", "perplexed": "anxiety",
+    "intrigued": "joy", "curiosity": "joy"
 }
 
 

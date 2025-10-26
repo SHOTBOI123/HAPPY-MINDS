@@ -3,12 +3,17 @@ import os
 import sqlite3
 import requests
 from datetime import datetime
+import google.generativeai as genai
 
 # -----------------------------
 # Config
 # -----------------------------
 ANALYZE_URL = os.getenv("ANALYZE_URL", "http://127.0.0.1:8000/analyze")
 DB_PATH = os.path.join("db", "app.db")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCJlweXvMBpZ7v6Fywbr9ZGtKJp66la1iM")
+
+# Configure Gemini
+genai.configure(api_key=GEMINI_API_KEY)
 
 app = Flask(__name__)
 
@@ -178,6 +183,75 @@ def analyze_and_save():
 
     # return the same shape your frontend expects
     return jsonify(model), 200
+
+@app.post("/gemini-chat")
+def gemini_chat():
+    """Handle chat conversation with Gemini AI."""
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or "").strip()
+    chat_history = data.get("history", [])  # List of {role: "user"|"assistant", content: "..."}
+    is_initial = data.get("is_initial", False)
+    journal_entry = data.get("journal_entry", "")
+    emotion = data.get("emotion", "unknown")
+    
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        if is_initial and journal_entry:
+            # First message: start with insights about the journal entry
+            system_prompt = """You are a compassionate mental health assistant chatbot. You're supportive, empathetic, and gentle. 
+When someone shares a journal entry, acknowledge their feelings and offer thoughtful insights. 
+Then invite them to continue the conversation. Keep responses concise (2-4 sentences) and warm, like talking to a friend."""
+            
+            initial_prompt = f"""Journal entry: "{journal_entry}"
+Detected emotion: {emotion}
+
+Acknowledge their feelings and provide supportive insights, then invite them to share more or ask questions."""
+            
+            chat = model.start_chat(history=[])
+            response = chat.send_message(f"{system_prompt}\n\n{initial_prompt}")
+            
+            return jsonify({
+                "message": response.text.strip(),
+                "history": [
+                    {"role": "assistant", "content": response.text.strip()}
+                ]
+            }), 200
+        else:
+            # Continue conversation with chat history
+            if not message:
+                return jsonify({"error": "message is required"}), 400
+            
+            # Start fresh chat if no history, otherwise use history
+            if not chat_history:
+                chat = model.start_chat(history=[])
+            else:
+                # Build conversation history for Gemini
+                history = []
+                for msg in chat_history[-10:]:  # Keep last 10 messages for context
+                    if msg.get("role") == "user":
+                        history.append({"role": "user", "parts": [msg.get("content", "")]})
+                    elif msg.get("role") == "assistant":
+                        history.append({"role": "model", "parts": [msg.get("content", "")]})
+                
+                chat = model.start_chat(history=history)
+            
+            response = chat.send_message(message)
+            
+            # Update history
+            new_history = chat_history + [
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": response.text.strip()}
+            ]
+            
+            return jsonify({
+                "message": response.text.strip(),
+                "history": new_history
+            }), 200
+            
+    except Exception as e:
+        app.logger.exception("Gemini chat error")
+        return jsonify({"error": "Chat unavailable right now. Please try again later."}), 500
 
 # -----------------------------
 # App start
