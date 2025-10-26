@@ -184,6 +184,37 @@ def analyze_and_save():
     # return the same shape your frontend expects
     return jsonify(model), 200
 
+@app.post("/analyze-text")
+def analyze_text():
+    """
+    Analyze a piece of text WITHOUT saving it as a journal entry.
+    Returns the same JSON shape your frontend expects:
+      { "emotion": str, "confidence": float, "scores": {..}, "top_words": [...], "affirmation": str }
+    """
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "text is required"}), 400
+
+    try:
+        # Reuse the same external analyzer your /analyze-and-save route calls
+        r = requests.post(ANALYZE_URL, json={"text": text}, timeout=30)
+        r.raise_for_status()
+        model = r.json()
+    except Exception:
+        app.logger.exception("Analyzer error (analyze-text)")
+        # Mirror the failure shape used in analyze-and-save
+        model = {
+            "emotion": "unknown",
+            "confidence": 0.0,
+            "scores": {},
+            "top_words": [],
+            "affirmation": "Analysis unavailable right now."
+        }
+
+    # No DB insert here — just return the analysis
+    return jsonify(model), 200
+
 @app.post("/gemini-chat")
 def gemini_chat():
     """Handle chat conversation with Gemini AI."""

@@ -94,12 +94,8 @@
       flex-direction:column;
       gap:4px;
     }
-    .chat-message.user{
-      align-items:flex-end;
-    }
-    .chat-message.assistant{
-      align-items:flex-start;
-    }
+    .chat-message.user{ align-items:flex-end; }
+    .chat-message.assistant{ align-items:flex-start; }
     .chat-bubble{
       max-width:85%;
       padding:10px 14px;
@@ -119,14 +115,8 @@
       color:var(--ink);
       border-bottom-left-radius:4px;
     }
-    .chat-placeholder{
-      opacity:0.7;
-    }
-    .chat-input-container{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
+    .chat-placeholder{ opacity:0.7; }
+    .chat-input-container{ display:flex; flex-direction:column; gap:8px; }
 
     /* Entries */
     .entries{list-style:none;margin:0;padding:0}
@@ -134,7 +124,6 @@
     .entry-left{flex:1;min-width:0;white-space:pre-wrap;word-wrap:break-word}
     .entry-right{text-align:right;white-space:nowrap}
     .empty{margin:6px 0 0}
-
   </style>
 </head>
 <body>
@@ -174,7 +163,7 @@
         <div id="wheelCaption" class="muted" style="text-align:center;margin-top:8px;">Analyze to generate.</div>
       </section>
 
-      <!-- Gemini Chat Card -->
+      <!-- Aurora Chat Card -->
       <section id="geminiSection" class="card" aria-labelledby="geminiTitle">
         <h2 id="geminiTitle" class="section-title">Aurora</h2>
         <div id="chatMessages" class="chat-messages" style="min-height:200px;max-height:400px;overflow-y:auto;margin-bottom:12px;">
@@ -345,6 +334,75 @@
       return (ranked[0]?.v ?? 0) > 0 ? ranked[0].i : -1;
     }
 
+    /* ==========================================================
+       Running average for Aurora chat inputs (not saved entries)
+       ========================================================== */
+    let CHAT_AGG = { anger:0, sad:0, neutral:0, joy:0, anxiety:0 };
+    let CHAT_COUNT = 0;
+
+    function resetChatAggregate(){
+      CHAT_AGG = { anger:0, sad:0, neutral:0, joy:0, anxiety:0 };
+      CHAT_COUNT = 0;
+    }
+
+    function toCanonicalNormalizedScores(raw){
+      // Map arbitrary analyzer keys via ALIASES → our canonical keys
+      const tmp={anger:0, sad:0, neutral:0, joy:0, anxiety:0};
+      for(const [k,v] of Object.entries(raw||{})){
+        const alias = (ALIASES[String(k).toLowerCase()]||"").toLowerCase();
+        if(!alias) continue;
+        const num = Number(v);
+        if(!isFinite(num)) continue;
+        // Note: our EMOTIONS uses key "sad" (not "sadness")
+        const canon = alias==="sadness" ? "sad" : alias;
+        if(canon in tmp) tmp[canon] = Math.max(tmp[canon], num);
+      }
+      const mx = Math.max(...Object.values(tmp));
+      if(mx>1){
+        for(const k of Object.keys(tmp)) tmp[k] = tmp[k]/mx;
+      }
+      return tmp;
+    }
+
+  function addChatScoresToAverage(rawScores){
+    // 1) Canonicalize + normalize this chat message
+    const canon = toCanonicalNormalizedScores(rawScores); // {anger,sad,neutral,joy,anxiety} in [0..1]
+
+    // 2) Add to running totals
+    const keys = ["anger","sad","neutral","joy","anxiety"];
+    keys.forEach(k => { CHAT_AGG[k] += (canon[k] || 0); });
+    CHAT_COUNT++;
+
+    // 3) Compute running average
+    const avg = {};
+    keys.forEach(k => { avg[k] = CHAT_AGG[k] / CHAT_COUNT; });
+
+    // 4) Find current top emotion from the average
+    let topKey = "neutral";
+    let topVal = -1;
+    keys.forEach(k => {
+      const v = avg[k] || 0;
+      if (v > topVal) { topVal = v; topKey = k; }
+    });
+
+    // 5) Draw wheel highlighting that top emotion
+    //    Pass the top so the highlight logic is deterministic,
+    //    then overwrite the caption ourselves to include the percent.
+    window.drawWheelFromScores?.(avg, topKey, null);
+
+    // 6) Update caption with label + percent
+    const labelMap = {
+      anger: "Anger",
+      sad: "Sadness",
+      neutral: "Neutral",
+      joy: "Joy",
+      anxiety: "Anxiety"
+    };
+    const pct = Math.round(Math.max(0, Math.min(1, topVal)) * 100);
+    const caption = document.getElementById("wheelCaption");
+    if (caption) caption.textContent = `${labelMap[topKey]} · ${pct}%`;
+  }
+
     /* ---------- Entries ---------- */
     async function refreshEntries(){
       try{
@@ -433,10 +491,24 @@
             chatInput.value="";
             chatSendBtn.disabled=true;
             geminiStatusEl.textContent="AI is typing...";
+
+            /* NEW: analyze the user's chat text (not saved) and add to average */
+            try{
+              const ar = await fetch("/analyze-text", {
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({ text: message })
+              });
+              if (ar.ok){
+                const adata = await ar.json();
+                addChatScoresToAverage(adata.scores || {});
+              }
+            }catch(e){ /* skip if analyze-text fails */ }
           }else{
             geminiStatusEl.textContent="Starting conversation...";
           }
 
+          // Existing: send to Aurora/Gemini backend
           const response=await fetch("/gemini-chat",{
             method:"POST",
             headers:{"Content-Type":"application/json"},
@@ -501,10 +573,11 @@
         affirmEl.textContent="";
         geminiStatusEl.textContent="";
 
-        // Reset chat
+        // Reset chat UI & state for a fresh conversation
         chatMessagesEl.innerHTML='<div class="chat-placeholder muted" style="text-align:center;padding:20px;">Starting conversation...</div>';
         chatInputContainer.style.display="none";
         chatHistory=[];
+        resetChatAggregate(); // <-- IMPORTANT: new journal entry resets chat average
 
         try{
           const r=await fetch(ANALYZE_URL,{
@@ -526,7 +599,7 @@
 
           await refreshEntries();
 
-          // Start Gemini chat conversation
+          // Start Aurora chat conversation
           await sendChatMessage("",true,text,top||"unknown");
         }catch(err){
           statusEl.textContent="Analysis unavailable right now.";
