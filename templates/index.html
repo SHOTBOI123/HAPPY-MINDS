@@ -4,89 +4,156 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Aurora Journal</title>
-
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 
   <style>
     :root{
-      --bg:#0f172a;        /* page */
-      --surface:#111827;   /* header/cards */
-      --ring:#334155;      /* borders */
-      --ink:#e5e7eb;       /* text */
-      --muted:#94a3b8;     /* secondary text */
-      --accent:#6C63FF;    /* brand */
-      --radius:20px;
+      --bg:#0f172a;
+      --surface:#111827;
+      --ring:#334155;
+      --ink:#e5e7eb;
+      --accent:#6C63FF;
     }
 
-    /* Base */
     html,body{height:100%}
     body{
-      margin:0; background:var(--bg); color:var(--ink);
+      margin:0;
+      background:var(--bg);
+      color:var(--ink);
       font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      display:flex; flex-direction:column; overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
     }
 
-    /* Header (shared with mood-tracker) */
+    /* Header */
     header{
       background:var(--surface);
       border-bottom:2px solid var(--ring);
       padding:16px 0;
       text-align:center;
+      z-index:10;
     }
     header h1{margin:0;color:var(--accent);font-size:2rem}
-    nav a{color:var(--ink);text-decoration:none;margin:0 .75rem}
+    nav a{color:var(--ink);margin:0 .75rem;text-decoration:none}
     nav a.active{color:var(--accent);text-decoration:underline}
 
-    /* Main area under header */
-    main{margin:0 !important; padding:0 !important; flex:1; position:relative}
+    main{margin:0;padding:0;flex:1;position:relative}
 
-    /* Full-bleed animated background */
+    /* Full background GIF */
     .hero-cover{
-      position:fixed; z-index:0;
-      left:0; right:0;
-      top:var(--hdr, 80px); bottom:0;
+      position:fixed;
+      z-index:0;
+      left:0; right:0; bottom:0;
+      top:var(--hdr, 80px);
       background-image:url("{{ url_for('static', filename='images/animated_forest.gif') }}");
-      background-size:cover; background-position:center; background-repeat:no-repeat;
+      background-size:cover;
+      background-position:center;
+      background-repeat:no-repeat;
     }
 
-    /* “Our Mission” (glass/frosted) */
-    .mission-card{
-      position:fixed; z-index:2;
-      top:calc(var(--hdr, 80px) + 24px);
-      right:24px;
-      width:min(360px, 32vw);  /* narrower as requested */
-      min-height:320px;
+    /* Overlay text */
+    .overlay-text{
+      position:absolute;
+      top:calc(var(--hdr, 80px) + 25%);
+      width:100%;
+      text-align:center;
+      font-size:3.2rem;
+      font-weight:700;
+      color:rgba(255,255,255,0.6);
+      text-shadow:0 4px 12px rgba(0,0,0,0.6);
+      letter-spacing:2px;
+      animation:
+        fadeIn 2s ease forwards,
+        softGlow 6s ease-in-out infinite alternate;
+      user-select:none;
+    }
 
-      background:rgba(17,24,39,.60);           /* header color @ 60% */
-      border:1px solid rgba(255,255,255,.15);
-      border-radius:var(--radius);
-      padding:18px 20px;
+    /* Music Button - small circular icon */
+    #music-btn{
+      position:absolute;
+      bottom:5%;
+      right:4%;
+      width:50px;
+      height:50px;
+      border-radius:50%;
+      background:rgba(17,24,39,0.85);
+      border:1px solid var(--ring);
+      box-shadow:0 4px 16px rgba(0,0,0,0.3);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition:all 0.3s ease;
+      opacity:0;
+      animation:fadeInButton 1s ease 1s forwards;
+    }
 
-      -webkit-backdrop-filter:blur(12px) brightness(1.05);
-      backdrop-filter:blur(12px) brightness(1.05);
+    #music-btn::before{
+      content:"🎵";
+      font-size:1.2rem;
+    }
 
-      box-shadow:0 10px 28px rgba(0,0,0,.45);
+    #music-btn:hover{
+      background:var(--accent);
+      box-shadow:0 6px 24px rgba(108,99,255,0.4);
+      transform:scale(1.1);
+    }
+
+    /* Start button */
+    .start-button{
+      position:absolute;
+      bottom:6%;
+      left:50%;
+      transform:translate(-50%, 0);
+      background:var(--surface);
       color:var(--ink);
-
-      opacity:0; transform:translateY(16px);
-      animation:fadeInUp .9s ease-out forwards .12s;
+      border:1px solid var(--ring);
+      border-radius:12px;
+      font-size:1.2rem;
+      font-weight:600;
+      padding:14px 36px;
+      text-decoration:none;
+      box-shadow:0 6px 20px rgba(0,0,0,0.4);
+      transition:transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease;
+      opacity:0;
+      animation:fadeUpCenter 1s ease 1.2s forwards;
     }
-    .mission-card h2{
-      margin:0 0 8px; font-size:18px; font-weight:700; color:var(--ink);
-      border-bottom:1px solid rgba(255,255,255,.12); padding-bottom:6px;
+    .start-button:hover{
+      background:var(--accent);
+      color:#fff;
+      transform:translate(-50%, 0) scale(1.05);
+      box-shadow:0 10px 28px rgba(108,99,255,0.4);
     }
 
-    @keyframes fadeInUp { to { opacity:1; transform:none; } }
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity:0; transform:translateY(-10px); }
+      to { opacity:1; transform:translateY(0); }
+    }
+    @keyframes softGlow {
+      from { text-shadow:0 3px 10px rgba(255,255,255,0.3); opacity:0.6; }
+      to   { text-shadow:0 3px 20px rgba(255,255,255,0.8); opacity:0.9; }
+    }
+    @keyframes fadeUpCenter {
+      from { opacity:0; transform:translate(-50%, 10px); }
+      to   { opacity:1; transform:translate(-50%, 0); }
+    }
+    @keyframes fadeInButton {
+      from { opacity:0; transform:scale(0.9); }
+      to   { opacity:1; transform:scale(1); }
+    }
 
-    /* Responsive */
-    @media (max-width:900px){
-      .mission-card{
-        left:16px; right:16px; width:auto; min-height:220px;
-        top:calc(var(--hdr, 80px) + 16px);
+    @media(max-width:800px){
+      .overlay-text{ font-size:2rem; }
+      #music-btn{ width:42px; height:42px; right:5%; bottom:8%; }
+      .start-button{
+        bottom:10%;
+        padding:12px 28px;
+        font-size:1rem;
       }
     }
 
-    /* (Home has no footer) */
     footer{display:none}
   </style>
 </head>
@@ -102,20 +169,46 @@
   <main>
     <div class="hero-cover"></div>
 
-    <aside class="mission-card" aria-label="Our Mission">
-      <h2>Our Mission</h2>
-      <!-- Add mission text here later -->
-    </aside>
+    <!-- Overlay text -->
+    <div class="overlay-text">Write. Reflect. Heal.</div>
+
+    <!-- Background music -->
+    <audio id="bg-music" loop>
+      <source src="{{ url_for('static', filename='music/peaceful.mp3') }}" type="audio/mpeg">
+      Your browser does not support the audio element.
+    </audio>
+
+    <!-- Small circular music button -->
+    <button id="music-btn" onclick="toggleMusic()"></button>
+
+    <!-- Start button -->
+    <a href="/mood-tracker" class="start-button">Start Now</a>
   </main>
 
   <script>
-    // Match background start to actual header height
+    // Adjust header height for background
     function setHeaderHeight(){
       const h = document.getElementById('site-header').offsetHeight;
       document.documentElement.style.setProperty('--hdr', h + 'px');
     }
     window.addEventListener('load', setHeaderHeight);
     window.addEventListener('resize', setHeaderHeight);
+
+    // Toggle background music
+    function toggleMusic() {
+      const music = document.getElementById("bg-music");
+      const btn = document.getElementById("music-btn");
+
+      if (music.paused) {
+        music.play();
+        btn.style.background = "var(--accent)";
+        btn.style.boxShadow = "0 6px 24px rgba(108,99,255,0.4)";
+      } else {
+        music.pause();
+        btn.style.background = "rgba(17,24,39,0.85)";
+        btn.style.boxShadow = "0 4px 16px rgba(0,0,0,0.3)";
+      }
+    }
   </script>
 </body>
 </html>
